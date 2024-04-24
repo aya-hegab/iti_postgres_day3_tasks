@@ -1,0 +1,111 @@
+1) SELECT ex_id, TO_CHAR(ex_date, 'DD Mon YYYY') AS "FormattedDate"
+FROM exam;
+
+2) CREATE FUNCTION failed_student(subject_id INTEGER)
+RETURNS INTEGER AS
+$$
+DECLARE
+    failed INTEGER;
+BEGIN
+    SELECT COUNT(*)
+    INTO failed
+    FROM grades
+    WHERE sub_id = subject_id AND grade < 50;
+
+    RETURN failed;
+END;
+$$
+LANGUAGE plpgsql;
+
+3)create table student (
+student_id int primary key,
+student_name varchar(20),
+student_email varchar(20),
+student_address varchar(20),
+student_phone varchar(20),
+track_id int);
+
+4)create function del_students ()
+returns trigger as
+$$
+begin
+insert into deleted_students (student_id,student_name) values
+(old.s_id, old.s_name);
+return old;
+end;
+$$
+language plpgsql;
+
+create trigger save_del_students 
+after delete on student for each row
+execute procedure del_students();
+
+delete from student where s_id=7;
+
+select * from deleted_students;
+
+5)create table backup_students (
+stu_id int primary key,
+stu_name varchar(20)
+)
+
+create function new_students()
+returns trigger as 
+$$
+begin 
+insert into backup_students (stu_id,stu_name)
+values (new.s_id , new.s_name);
+return new;
+end;
+$$
+language plpgsql
+
+create trigger saved_students after insert 
+on student for each row 
+execute procedure new_students();
+
+insert into student (s_id,s_name)
+values (8,'taghreed');
+
+select * from backup_students;
+
+6)create table contact_info (
+ id SERIAL PRIMARY KEY,
+    name VARCHAR(255),
+    email VARCHAR(255),
+    phone_number VARCHAR(20)
+);
+
+CREATE TABLE contact_info_log (
+    log_id SERIAL PRIMARY KEY,
+    contact_id INT,
+    action_description VARCHAR(255),
+    action_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE FUNCTION log_contact_info_changes()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO contact_info_log (contact_id, action_description)
+        VALUES (NEW.id, 'New contact added');
+    ELSIF TG_OP = 'UPDATE' THEN
+        INSERT INTO contact_info_log (contact_id, action_description)
+        VALUES (NEW.id, 'Contact info updated');
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER contact_info_trigger
+AFTER INSERT OR UPDATE
+ON contact_info
+FOR EACH ROW
+EXECUTE FUNCTION log_contact_info_changes();
+
+INSERT INTO contact_info (name, email, phone_number) VALUES ('Taghreed', 'taghreed@gmail.com', '01245668');
+
+SELECT * FROM contact_info_log;
+
+UPDATE contact_info SET phone_number = '123' WHERE name = 'Taghreed';
